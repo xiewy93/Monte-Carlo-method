@@ -1,1 +1,2 @@
 import numpy as py
+import scipy as sci
