@@ -1,0 +1,375 @@
+#对原始数值特征进行排序，得到排序特征
+import pandas as pd
+
+feature_type = pd.read_excel('../data/feature_type.xlsx')
+feature_type.columns = ['feature','type']
+numerical_feature = list(feature_type[feature_type.type=='Numerical']['feature'])
+numerical_feature.remove('target')
+numerical_feature.remove('ListingInfo')
+
+
+train = pd.read_csv('../data/train/train_master.csv',encoding='gb18030')[['Idx','target']+numerical_feature]
+train[train==-1] = None
+test = pd.read_csv('../data/test/Kesci_Master_9w_gbk_1_test_set.csv',encoding='gb18030')[['Idx']+numerical_feature]
+test['target'] = [-99999 for i in range(len(test))]
+test[test==-1] = None
+train_test = pd.concat([train,test])
+train_test[train_test.target==1].fillna(train_test[train_test.target==1].median(),inplace=True)
+train_test[train_test.target==0].fillna(train_test[train_test.target==0].median(),inplace=True)
+train_test.fillna(train_test.median(),inplace=True)
+
+#数值特征
+train = train_test[train_test.target!=-99999]
+train.drop('target',axis=1,inplace=True)
+train.to_csv('../data/train/train_x_numeric.csv',index=None)
+
+test = train_test[train_test.target==-99999]
+test.drop('target',axis=1,inplace=True)
+test.to_csv('../data/test/test_x_numeric.csv',index=None)
+
+#rank特征
+train_test_rank = train_test[['Idx','target']]
+for feature in numerical_feature:
+    train_test_rank['r'+feature] = train_test[feature].rank(method='max')/float(len(train_test))
+
+train_rank = train_test_rank[train_test_rank.target!=-99999]
+train_rank.drop('target',axis=1,inplace=True)
+train_rank.to_csv('../data/train/train_x_rank.csv',index=None)
+
+test_rank = train_test_rank[train_test_rank.target==-99999]
+test_rank.drop('target',axis=1,inplace=True)
+test_rank.to_csv('../data/test/test_x_rank.csv',index=None)
+
+#分析和处理缺失值
+import pandas as pd
+
+
+
+"""
+#只统计数值特征的缺失值个数，后面SVM会用到
+feature_type = pd.read_excel('../data/feature_type.xlsx')
+feature_type.columns = ['feature','type']
+numerical_feature = list(feature_type[feature_type.type=='Numerical']['feature'])
+numerical_feature.remove('target')
+numerical_feature.remove('ListingInfo')
+train_x = pd.read_csv('../data/train/PPD_Training_Master_GBK_3_1_Training_Set.csv',encoding='gbk')[['Idx','target']+numerical_feature]
+train_x.fillna(-1,inplace=True)
+train_x['n_null'] = (train_x<0).sum(axis=1)
+train_missing_gt100= train_x[train_x.n_null>100]
+train_missing_gt100[['Idx','n_null','target']].to_csv('../data/train_missing_gt100.csv',index=None)
+"""
+
+
+
+train_x = pd.read_csv('../data/train/train_master.csv',encoding='gb18030')
+train_x.fillna(-1,inplace=True)
+test_x = pd.read_csv('../data/test/Kesci_Master_9w_gbk_1_test_set.csv',encoding='gb18030')
+test_x.fillna(-1,inplace=True)
+
+train_x['n_null'] = (train_x<0).sum(axis=1)
+test_x['n_null'] = (test_x<0).sum(axis=1)
+
+
+train_x['discret_null'] = train_x.n_null
+train_x.discret_null[train_x.discret_null<=24] = 1
+train_x.discret_null[(train_x.discret_null>24)&(train_x.discret_null<=34)] = 2
+train_x.discret_null[(train_x.discret_null>34)&(train_x.discret_null<=46)] = 3
+train_x.discret_null[(train_x.discret_null>46)&(train_x.discret_null<=51)] = 4
+train_x.discret_null[(train_x.discret_null>51)] = 5
+train_x[['Idx','n_null','discret_null']].to_csv('../data/train/train_x_null.csv',index=None)
+
+test_x['discret_null'] = test_x.n_null
+test_x.discret_null[test_x.discret_null<=24] = 1
+test_x.discret_null[(test_x.discret_null>24)&(test_x.discret_null<=34)] = 2
+test_x.discret_null[(test_x.discret_null>34)&(test_x.discret_null<=46)] = 3
+test_x.discret_null[(test_x.discret_null>46)&(test_x.discret_null<=51)] = 4
+test_x.discret_null[(test_x.discret_null>51)] = 5
+test_x[['Idx','n_null','discret_null']].to_csv('../data/test/test_x_null.csv',index=None)
+
+#生成经纬度特征
+t = pd.read_excel('../data/jw1.xls')
+t.columns = ['p','city','w','j']
+t.drop('city',axis=1,inplace=True)
+t = t.groupby('p').agg('mean')
+province = t.to_dict()
+j1_province = province['j']
+w1_province = province['w']
+
+t = pd.read_csv('../data/jw2.csv',encoding='gbk')
+t.columns = ['p','city','w','j']
+t.drop('city',axis=1,inplace=True)
+t = t.groupby('p').agg('mean')
+province = t.to_dict()
+j2_province = province['j']
+w2_province = province['w']
+
+###
+jw1 = pd.read_excel('../data/jw1.xls')
+jw1.columns = ['province','city','w','j']
+jw1.index = jw1.city
+jw1.drop(['province','city'],axis=1,inplace=True)
+d1 = jw1.to_dict()
+d1_j = d1['j']
+d1_w = d1['w']
+
+
+jw2 = pd.read_csv('../data/jw2.csv',encoding='gbk')
+jw2.columns = ['province','city','w','j']
+jw2.index = jw2.city
+jw2.drop(['province','city'],axis=1,inplace=True)
+d2 = jw2.to_dict()
+d2_j = d2['j']
+d2_w = d2['w']
+print d2
+
+def funj(x):
+    if x in d1_j:
+        return d1_j[x]
+    else:
+        if x in d2_j:
+            return d2_j[x]
+        else:
+            return None
+        
+
+def funw(x):
+    if x in d1_w:
+        return d1_w[x]
+    else:
+        if x in d2_w:
+            return d2_w[x]
+        else:
+            return None
+
+def pj(x):
+    if x in j1_province:
+        return j1_province[x]
+    else:
+        if x in j2_province:
+            return j2_province[x]
+        else:
+            return None
+
+def pw(x):
+    if x in w1_province:
+        return w1_province[x]
+    else:
+        if x in w2_province:
+            return w2_province[x]
+        else:
+            return None
+
+train = pd.read_csv('../data/train/train_master.csv',encoding='gb18030')[['Idx','UserInfo_2','UserInfo_4','UserInfo_8','UserInfo_20','UserInfo_19']]
+test = pd.read_csv('../data/test/Kesci_Master_9w_gbk_1_test_set.csv',encoding='gb18030')[['Idx','UserInfo_2','UserInfo_8','UserInfo_20','UserInfo_4','UserInfo_19']]
+
+
+
+
+def func(x):
+    if u'市' in x:
+        return x[0:-1]
+    else:
+        return x
+
+
+####
+train['U2_j'] = train.UserInfo_2
+train['U2_w'] = train.UserInfo_2
+train.drop('UserInfo_2',axis=1,inplace=True)
+train.U2_j = train.U2_j.apply(funj)
+train.U2_w = train.U2_w.apply(funw)
+
+train['U4_j'] = train.UserInfo_4
+train['U4_w'] = train.UserInfo_4
+train.drop('UserInfo_4',axis=1,inplace=True)
+train.U4_j = train.U4_j.apply(funj)
+train.U4_w = train.U4_w.apply(funw)
+
+train['U8_j'] = train.UserInfo_8
+train['U8_w'] = train.UserInfo_8
+train.drop('UserInfo_8',axis=1,inplace=True)
+train.U8_j = train.U8_j.apply(funj)
+train.U8_w = train.U8_w.apply(funw)
+
+
+train['U20_j'] = train.UserInfo_20.apply(func)
+train['U20_w'] = train.UserInfo_20.apply(func)
+train.drop('UserInfo_20',axis=1,inplace=True)
+train.U20_j = train.U20_j.apply(funj)
+train.U20_w = train.U20_w.apply(funw)
+
+
+train['U19_j'] = train.UserInfo_19.apply(func)
+train['U19_w'] = train.UserInfo_19.apply(func)
+train.drop('UserInfo_19',axis=1,inplace=True)
+train.U19_j = train.U19_j.apply(pj)
+train.U19_w = train.U19_w.apply(pw)
+
+
+####
+
+test['U2_j'] = test.UserInfo_2
+test['U2_w'] = test.UserInfo_2
+test.drop('UserInfo_2',axis=1,inplace=True)
+test.U2_j = test.U2_j.apply(funj)
+test.U2_w = test.U2_w.apply(funw)
+
+test['U4_j'] = test.UserInfo_4
+test['U4_w'] = test.UserInfo_4
+test.drop('UserInfo_4',axis=1,inplace=True)
+test.U4_j = test.U4_j.apply(funj)
+test.U4_w = test.U4_w.apply(funw)
+
+test['U8_j'] = test.UserInfo_8
+test['U8_w'] = test.UserInfo_8
+test.drop('UserInfo_8',axis=1,inplace=True)
+test.U8_j = test.U8_j.apply(funj)
+test.U8_w = test.U8_w.apply(funw)
+
+test['U20_j'] = test.UserInfo_20.apply(func)
+test['U20_w'] = test.UserInfo_20.apply(func)
+test.drop('UserInfo_20',axis=1,inplace=True)
+test.U20_j = test.U20_j.apply(funj)
+test.U20_w = test.U20_w.apply(funw)
+
+
+test['U19_j'] = test.UserInfo_19.apply(func)
+test['U19_w'] = test.UserInfo_19.apply(func)
+test.drop('UserInfo_19',axis=1,inplace=True)
+test.U19_j = test.U19_j.apply(pj)
+test.U19_w = test.U19_w.apply(pw)
+
+
+train_test = pd.concat([train,test])
+train_test.U2_j.fillna(train_test.U19_j,inplace=True)
+train_test.U2_w.fillna(train_test.U19_w,inplace=True)
+train_test.U4_j.fillna(train_test.U19_j,inplace=True)
+train_test.U4_w.fillna(train_test.U19_w,inplace=True)
+train_test.U8_j.fillna(train_test.U19_j,inplace=True)
+train_test.U8_w.fillna(train_test.U19_w,inplace=True)
+train_test.U20_j.fillna(train_test.U19_j,inplace=True)
+train_test.U20_w.fillna(train_test.U19_w,inplace=True)
+train_test[['Idx','U2_j','U2_w','U4_j','U4_w','U8_j','U8_w','U20_j','U20_w','U19_j','U19_w']].to_csv('../data/jin_wei.csv',index=None)
+
+#CategoryFeatureProcess特征处理
+
+def merge_train_test(train_file, test_file, output_file):
+    train_set = pd.read_csv(train_file, encoding='gb18030')
+    print("train_set rows :", train_set.Idx.count())
+    test_set = pd.read_csv(test_file, encoding='gb18030')
+    print("test_set rows :", test_set.Idx.count())
+    train_set = train_set.append(test_set, ignore_index=True)
+    train_set.fillna({"target":-1}, inplace=True)
+    print("total rows :", train_set.Idx.count())
+    train_set.to_csv(output_file, index=False, encoding='utf-8')
+    
+def FeatureSplit(feature_type, data_file, categorical_output_file, numerical_output_file):
+    data = pd.read_csv(data_file)
+    feature_type = pd.read_excel(feature_type)
+    feature_type.columns = ['feature', 'type']
+    categorical_feature = feature_type[feature_type.type == 'Categorical'].feature.tolist()
+    numerical_feature = feature_type[feature_type.type == 'Numerical'].feature.tolist()
+    categorical_feature_data = data[["Idx"] + categorical_feature]
+    numerical_feature_data = data[["Idx"] + numerical_feature]
+    categorical_feature_data.to_csv(categorical_output_file, index=False)
+    numerical_feature_data.to_csv(numerical_output_file, index=False)
+    
+def merge_update_log_feature(update_feature_file, log_feature_file, output_file):
+    update_features = pd.read_csv(update_feature_file)
+    log_features = pd.read_csv(log_feature_file)
+    features = pd.merge(update_features, log_features, on="Idx", how='outer')
+    features.drop(["mostCountInfo", "leastCountInfo", "mostCountCode", "leastCountCode", "mostCountCate", "leastCountCate"], axis=1, inplace=True)
+    features.to_csv(output_file, index=False)
+    
+def append_update_log_feature(train_feature_file, test_feature_file, output_file):
+    train_set = pd.read_csv(train_feature_file)
+    print("train_set rows :", train_set.Idx.count())
+    test_set = pd.read_csv(test_feature_file)
+    print("test_set rows :", test_set.Idx.count())
+    train_set = train_set.append(test_set, ignore_index=True)
+    print("total rows :", train_set.Idx.count())
+    train_set.to_csv(output_file, index=False, encoding='utf-8')
+    
+def merge_numberical_features(features_1, features_2, output_file):
+    feature_part1 = pd.read_csv(features_1)
+    feature_part2 = pd.read_csv(features_2)
+    features = pd.merge(feature_part1, feature_part2, on="Idx", how='left')
+    features.to_csv(output_file, index=False)
+    
+train_file = "E:/mojing/PPD-Second-Round-Data-Update/Training Set/train_master.csv"
+test_file = "E:/mojing/PPD-Second-Round-Data-Update/Test Set/Kesci_Master_9w_gbk_1_test_set.csv"
+data_file = "E:/mojing/data_all.csv"
+feature_type_file = "E:/mojing/feature_type.xlsx"
+category_output_file = "E:/mojing/category_feature.csv"
+numerical_output_file = "E:/mojing/numerical_feature.csv";
+numerical_file = "E:/mojing/numerical_feature_solve.csv"
+categorical_encode_file = "E:/mojing/category_encode_feature.csv"
+train_update_features_file = "E:/mojing/PPD-Second-Round-Data-Update/Training Set/UpdateInfoFeature_Training_Set.csv"
+train_log_features_file = "E:/mojing/PPD-Second-Round-Data-Update/Training Set/LogInfoFeature_Training_Set.csv"
+train_merge_file = "E:/mojing/train_log_update_features.csv"
+test_update_features_file = "E:/mojing/PPD-Second-Round-Data-Update/Test Set/UpdateInfoFeature_Test_Set.csv"
+test_log_features_file = "E:/mojing/PPD-Second-Round-Data-Update/Test Set/LogInfoFeature_Test_Set.csv"
+test_merge_file = "E:/mojing/test_log_update_features.csv"
+update_log_features = "E:/mojing/update_log_features.csv"
+numerical_all_file = "E:/mojing/numerical_feature_all.csv"
+merge_numberical_features(numerical_file, update_log_features, numerical_all_file)
+# merge_train_test(train_file, test_file, data_file);
+# FeatureSplit(feature_type_file, data_file, category_output_file, numerical_output_file)
+# merge_update_log_feature(train_update_features_file, train_log_features_file, train_merge_file)
+# merge_update_log_feature(test_update_features_file, test_log_features_file, test_merge_file)
+# append_update_log_feature(train_merge_file, test_merge_file, update_log_features)
+
+#MergeFeature特征合并
+bad_rate_1 = pd.read_csv("E:/mojing/train_val/bad_rate_1.csv")
+bad_rate_3 = pd.read_csv("E:/mojing/train_val/bad_rate_3.csv")
+bad_rate_5 = pd.read_csv("E:/mojing/train_val/bad_rate_5.csv")
+bad_rate_7 = pd.read_csv("E:/mojing/train_val/bad_rate_7.csv")
+bad_rate_9 = pd.read_csv("E:/mojing/train_val/bad_rate_9.csv")
+bad_rate_11 = pd.read_csv("E:/mojing/train_val/bad_rate_11.csv")
+dis_f = pd.read_csv("E:/mojing/adding_feature.csv")
+bad_rate = pd.merge(bad_rate_5, bad_rate_7, on="Idx")
+bad_rate = pd.merge(bad_rate, bad_rate_9, on="Idx")
+bad_rate = pd.merge(bad_rate, bad_rate_11, on="Idx")
+bad_rate = pd.merge(bad_rate, bad_rate_1, on="Idx")
+bad_rate = pd.merge(bad_rate, bad_rate_3, on="Idx")
+bad_rate = pd.merge(bad_rate, dis_f, on="Idx")
+bad_rate.to_csv("E:/mojing/train_val/features_add_val.csv", index=False)
+
+#SelectFeature
+import pandas as pd
+n = 0;
+def read_feature(fname, fdata):
+    print("solving ", fname)
+    fn = pd.read_csv(fname)
+#     fn = fn[fn.score >= 10]
+#     fn = fn[fn.score < 10]
+#     fn = fn[fn.score >= 7]
+#     fn = fn[fn.score < 7]
+#     fn = fn[fn.score >= 6]
+    global n;
+    fn = fn[fn.score == 4]
+    n += fn.shape[0]
+    fd = pd.read_csv(fdata)[["Idx"] + fn.feature.tolist()]
+    return fd;
+rate_features_1 = read_feature("E:/mojing/feature_score_1.csv", "E:/mojing/third_part_rate_1.csv")
+rate_features_2 = read_feature("E:/mojing/feature_score_2.csv", "E:/mojing/third_part_rate_2.csv")
+rate_features_3 = read_feature("E:/mojing/feature_score_3.csv", "E:/mojing/third_part_rate_3.csv")
+rate_features_4 = read_feature("E:/mojing/feature_score_4.csv", "E:/mojing/third_part_rate_4.csv")
+rate_features_5 = read_feature("E:/mojing/feature_score_5.csv", "E:/mojing/third_part_rate_5.csv")
+rate_features_6 = read_feature("E:/mojing/feature_score_6.csv", "E:/mojing/third_part_rate_6.csv")
+rate_features_7 = read_feature("E:/mojing/feature_score_7.csv", "E:/mojing/third_part_rate_7.csv")
+print("features = ", n)
+print("start merge")
+features_thirdpart_rate = pd.merge(rate_features_1, rate_features_2, on="Idx", how="left")
+print("start merge 3")
+features_thirdpart_rate = pd.merge(features_thirdpart_rate, rate_features_3, on="Idx", how="left")
+print("start merge 4")
+features_thirdpart_rate = pd.merge(features_thirdpart_rate, rate_features_4, on="Idx", how="left")
+print("start merge 5")
+features_thirdpart_rate = pd.merge(features_thirdpart_rate, rate_features_5, on="Idx", how="left")
+print("start merge 6")
+features_thirdpart_rate = pd.merge(features_thirdpart_rate, rate_features_6, on="Idx", how="left")
+print("start merge 7")
+features_thirdpart_rate = pd.merge(features_thirdpart_rate, rate_features_7, on="Idx", how="left")
+features_thirdpart_rate.to_csv("E:/mojing/features_thirdpart_rate_part5.csv", index=False)
+
