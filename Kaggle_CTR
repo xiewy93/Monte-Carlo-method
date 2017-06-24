@@ -1,0 +1,18 @@
+#dataset from http://pan.baidu.com/s/1qYVhaJq commit:8fyn
+# another dataset from http://pan.baidu.com/s/1qYRM2cs commit:twa7
+#learning vedio bilibili
+#coding http://github.com/tensorflow/blob/master/tensorflow/examples/learn/wide_n_deep_tutorial.py
+#liblinear处理大量数据
+ 
+import pandas as pd
+train_set = pd.read_csv('train.csv')
+test_set = pd.read_csv('test.csv')
+train_set.head()
+train_set.descibe()
+
+
+
+
+
+
+
