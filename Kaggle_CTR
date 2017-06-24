@@ -9,7 +9,64 @@ train_set = pd.read_csv('train.csv')
 test_set = pd.read_csv('test.csv')
 train_set.head()
 train_set.descibe()
+#id:ad_identifier
+#click:0/1 for non-click/click
+#hour:foramt is YYMMDDHH  so 14091123 means 23:00 on 2014,11,9
+#C1:anonymized categorical variable
+#banner_pos
+#site_id
+#site_category
+#app_id
+#app_domain
+#app_category
+#device_id
+#device_ip
+#device_model
+#device_type
+#device_conn_type
+#C14-C21:anonymized categorical variable
 
+from sklearn.externals import joblib
+from sklearn.cross_validation import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn import metrics
+from utils import load_df
+#结果衡量
+def print_metrics(true_values, predicted_values):
+    print('Accuracy: ',metrics.accuracy_score(true_values, predicted_values))
+    print('AUC: ',metrics.roc_auc_score(true_values, predicted_values))
+    print('Confusion Matrix: ',metrics.confusion_matrix(true_values, predicted_values))
+    print(metrics.classification_report(true_values, predicted_values))
+#拟合分类器    
+def classify(classifier_class, train_input, train_targets):
+    classifier_object = classifier_class()
+    classifier_object.fit(train_input, train_targets)
+    return classifier_object
+    
+#模型储存
+def save_model(clf):
+    joblib.dump(clf.'classifier.pkl')
+train_data = load_df('train_small.csv').values
+train_data[:,:]
+#训练和存储模型
+X_train,X_test, y_train, y_test = train_test_split(train_data[0::,1::],train_data[0::,0],test_size=0.3, random_state=0)
+classifier = classify(LogisticRegression, X_train, y_train)
+predictions = classifier.predict(X_test)
+print_metrics(y_test, predictions)
+save_model(classifier)
+
+#数据探索
+data = pd.read_csv('train_subset.csv')
+data.groupby('device_type',{'CTR':gl.aggregate.Mean('click')})
+data['C1'].sketch_summary().frequent_items()
+zip(data.column_names(), data.column_types())
+
+#按给定格式生成结果
+def create_submission(ids, prediction, filename='submission.csv'):
+    submissions = np.concatenate(len(ids),1)
+    predictions.reshape(len(pre))
+    df = DataFrame(submissions)
+    df.to_csv(filename, header=['id','click'], index=False)
 
 
 
