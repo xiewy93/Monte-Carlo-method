@@ -1,0 +1,88 @@
+import pandas as pd
+import numpy as np
+import time
+import random
+import joblib
+import os
+
+weather_dict = joblib.load('weather_dict.pkl')
+airports = [i[0] for i in weather_dict.values()]
+#remove duplicates
+airports = list(set(airports))
+dates = pd.date_range(pd.to_datetime('2001-05-01'),pd.to_datetime('2016-03-11'), freq='D')
+
+def write_daily_weather_data(airport, dates):
+    '''list, list ---> CSV files
+    
+    Takes a list of airport codes (weather stations) and a list of dates (as pandas datetime objects), calls the Weather \
+    Underground API, cleans the weather data for each of those days, and exports each day to a csv in the data/wunderground folder
+    
+    CSVs will have the following columns:
+    
+    timeest | temperaturef | dewpointf | humidity | sealevelpressurein | visibilitymph | winddirection | windspeedmph | gustspeedmph
+    
+        | precipitationin | events | conditions | winddirdegrees | dateutc
+    '''
+    for d in dates:
+
+        df0 = pd.read_csv('https://www.wunderground.com/history/airport/{0}/{1}/{2}/{3}/DailyHistory.html?format=1'\
+                             .format(airport, d.year, d.month, d.day))
+        cols = df0.columns
+        df0.columns = [col.lower().replace(' ','').replace('<br/>', '') for col in cols]
+
+        df0.dateutc = df0.dateutc.apply(lambda x: pd.to_datetime(x.replace('<br />', '')))
+
+        df0.gustspeedmph = df0.gustspeedmph.replace('-', 0)
+        df0.windspeedmph = df0.windspeedmph.replace('Calm', 0)
+        df0.precipitationin = df0.precipitationin.replace('NaN', 0)
+        df0.events = df0.events.replace('NaN', 0)
+
+        filepath = '../data/wunderground/'+ airport +'/' + str(d.date()).replace('-','') + '.csv'
+        print filepath
+        df0.to_csv(filepath, index=False)
+
+
+
+        t = 3
+        time.sleep(t)
+
+        if type(df0.dateutc[0]) == pd.tslib.Timestamp:
+            continue
+        else:
+            print "Something is wrong"
+            break
+
+    print "Files for %s have been written" % airport
+    return
+    
+#Loop over the airports and export the weather files
+for a in airports:
+    write_daily_weather_data(a, dates)
+    
+#
+def combine_weather_data(airport):
+    '''Combine the weather data for each day at an airport into one combined csv'''
+    csvs = []
+    for file in os.listdir("../data/wunderground/"+airport+"/"):
+        if file.endswith(".csv"):
+            csvs.append(file)
+
+    fout=open("../data/wunderground/"+airport+"_all.csv","a")
+
+    # write the entire first file:
+    for line in open("../data/wunderground/"+airport+"/"+csvs[0]):
+        fout.write(line)
+    # now the rest, skipping the headers:    
+    for file in csvs[1:]:
+        f = open("../data/wunderground/"+airport+"/"+file)
+        f.next() # skip the header
+        for line in f:
+             fout.write(line)
+        f.close() # not really needed
+    fout.close()
+    
+ for a in airports:
+    combine_weather_data(a)
+    print "Files for %s have been combined" % airport    
+    
+    
