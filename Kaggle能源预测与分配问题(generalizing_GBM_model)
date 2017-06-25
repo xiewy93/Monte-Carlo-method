@@ -1,0 +1,76 @@
+#Take the files for each region in the NYISO, concatenate them into one, and build a model on them.
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import joblib
+
+weather_dict = joblib.load('weather_dict.pkl')
+weather_dict['N.Y.C.']
+region = 'N.Y.C.'
+place = weather_dict[region][1].lower().replace(' ','')
+full = pd.read_csv('full_{0}_features.csv'.format(place))
+full.dropna(inplace=True)
+
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.cross_validation import train_test_split
+
+features = [\
+          'temperaturef',\
+#           'dewpointf', \
+#           'humidity', \
+#           'sealevelpressurein', \
+#          'windspeedmph', \
+#           'precipitationin',\
+            'year',\
+          'dow',\
+          'doy', \
+#           'month',\
+#           'hour',\
+         'minute',\
+#           't_m24', \
+#           't_m48', \
+#           't_m1',\
+         ]
+
+X_train = full[full.timestamp < pd.to_datetime('2015')][features]
+X_test = full[full.timestamp >= pd.to_datetime('2015')][features]
+
+y_train = full[full.timestamp < pd.to_datetime('2015')]['load']
+y_test = full[full.timestamp >= pd.to_datetime('2015')]['load']
+
+gbr = GradientBoostingRegressor(loss='ls', n_estimators=100, max_depth=3, verbose=1, warm_start=True)
+gbr_fitted = gbr.fit(X_train, y_train)
+gbr.score(X_test, y_test)
+zip(features, list(gbr.feature_importances_))
+
+#TO test the GBM model, plot the deviance agains the number of estimators in your regressor.
+def deviance_plot(est, X_test, y_test, ax = None, label = '', train_color='#2c7bb6', test_color = '#d7191c', alpha= 1.0, ylim = (0,1000000)):
+
+    n_estimators = len(est.estimators_)
+    test_dev = np.empty(n_estimators)
+
+    for i, pred in enumerate(est.staged_predict(X_test)):
+        test_dev[i] = est.loss_(y_test, pred)
+
+    if ax is None:
+        fig = plt.figure(figsize = (12,8))
+        ax = plt.gca()
+
+    ax.plot(np.arange(n_estimators) + 1, test_dev, color= test_color, label = 'Test %s' % label, linewidth=2, alpha=alpha)
+    ax.plot(np.arange(n_estimators) + 1, est.train_score_, color = train_color, label= 'Train %s' % label, linewidth=2, alpha=alpha)
+    ax.set_ylabel('Error')
+    ax.set_xlabel('n_estimators')
+    ax.set_ylim(ylim)
+    return test_dev, ax
+
+test_dev, ax = deviance_plot(gbr, X_test, y_test)
+ax.legend(loc='upper right')
+
+# add some annotations
+# ax.annotate('Lowest test error', xy=(test_dev.argmin() + 1, test_dev.min() + 0.02),
+#             xytext=(150, 3.5), **annotation_kw)
+
+# ann = ax.annotate('', xy=(800, test_dev[799]),  xycoords='data',
+#                   xytext=(800, est.train_score_[799]), textcoords='data',
+#                   arrowprops={'arrowstyle': '<->'})
+# ax.text(810, 3.5, 'train-test gap')
