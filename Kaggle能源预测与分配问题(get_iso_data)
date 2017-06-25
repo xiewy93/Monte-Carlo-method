@@ -1,0 +1,125 @@
+import zipfile
+import os
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import requests
+import os 
+
+dates = pd.date_range(pd.to_datetime('2001-01-01'), pd.to_datetime('2015-12-31'), freq='M')
+
+for date in dates:
+    url = 'http://mis.nyiso.com/public/csv/pal/{0}{1}01pal_csv.zip'.format(date.year, str(date.month).zfill(2))
+    urllib.urlretrieve(url, "../data/nyiso/{0}".format(url.split('/')[-1]))
+
+def unzip(source_filename, dest_dir):
+    with zipfile.ZipFile(source_filename) as zf:
+        zf.extractall(dest_dir) 
+        
+#I'll extract every csv into the ../data/nyiso/all/raw folder        
+zips = []
+for file in os.listdir("../data/nyiso"):
+    if file.endswith(".zip"):
+        zips.append(file)
+for z in zips:
+    unzip('../data/nyiso/' + z, '../data/nyiso/all/raw')
+    
+#Combine all csvs into one file: combined.csv
+csvs = []
+for file in os.listdir("../data/nyiso/all/raw"):
+    if file.endswith("pal.csv"):
+        csvs.append(file)
+
+fout=open("../data/nyiso/all/combined.csv","a")
+
+# write the entire first file:
+for line in open("../data/nyiso/all/raw/"+csvs[0]):
+    fout.write(line)
+# now the rest, skipping the headers:    
+for file in csvs[1:]:
+    f = open("../data/nyiso/all/raw/"+file)
+    f.next() # skip the header
+    for line in f:
+         fout.write(line)
+    f.close() # not really needed
+fout.close()
+
+#Cleaning and viewing the data
+df = pd.read_csv("../data/nyiso/all/combined.csv")
+cols = df.columns
+df.columns = [col.lower().replace(' ', '') for col in cols]
+df = df[['timestamp', 'name', 'ptid', 'load']][df.load != 'Load']
+
+#Rewrite this data to the csv for later
+df.to_csv('../data/nyiso/all/combined.csv', index=False)
+df.name.unique()
+
+#Create a dictionary of weather stations
+regions = list(df.name.unique())
+region_names = ['Capital', 'Central', 'Dunwoodie', 'Genese', 'Hudson Valley', 'Long Island', 'Mohawk Valley', 'Millwood', 'NYC', 'North', 'West']
+cities = ['Albany', 'Syracuse', 'Yonkers', 'Rochester', 'Poughkeepsie', 'NYC', 'Utica', 'Yonkers', 'NYC', 'Plattsburgh', 'Buffalo']
+weather_stations = ['kalb', 'ksyr', 'klga', 'kroc', 'kpou', 'kjfk', 'krme', 'klga', 'kjfk', 'kpbg', 'kbuf']
+weather_dict = dict(zip(regions, zip(weather_stations, region_names, cities)))
+
+#Subset the data
+for region in weather_dict.keys():
+    subset = df[df.name == region].copy()
+    filename = weather_dict[region][1].lower().replace(' ', '') + '.csv'
+    subset.to_csv('../data/nyiso/all/' + filename, index=False)
+
+#Output 2012 data to test on
+capital[capital.timestamp < pd.to_datetime('2013-01-01')].to_csv('load2012.csv', index=False)
+csvs = []
+for file in os.listdir("../data/wunderground/kalb"):
+    if file.startswith("2012"):
+        csvs.append(file)
+
+fout=open("weather2012.csv","a")
+
+# write the entire first file:
+for line in open("../data/wunderground/kalb/"+csvs[0]):
+    fout.write(line)
+# now the rest, skipping the headers:    
+for file in csvs[1:]:
+    f = open("../data/wunderground/kalb/"+file)
+    f.next() # skip the header
+    for line in f:
+         fout.write(line)
+    f.close() # not really needed
+fout.close()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
